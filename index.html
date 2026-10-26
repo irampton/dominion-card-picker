@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#163c35">
+    <meta name="description" content="Pick a Dominion kingdom from your collection, swap cards, and prepare every extra pile, mat and token.">
+    <title>Dominion Kingdom Picker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="masthead">
+        <a class="brand" href="./" aria-label="Dominion Kingdom Picker home"><span class="crest" aria-hidden="true">♜</span><span>Dominion Kingdom Picker</span></a>
+    </header>
+    <main>
+        <details class="collection panel" id="collection" open>
+            <summary><h2 id="collection-heading">Sets</h2><span class="text-actions"><button id="select-all" type="button">Select all</button><button id="select-none" type="button">Clear</button></span></summary>
+            <div id="sets" class="sets"></div>
+            <details id="promos"><summary>Promos</summary><div id="promo-sets" class="sets"></div></details>
+        </details>
+        <section class="panel presets" aria-labelledby="preset-heading">
+            <h2 id="preset-heading">Preset</h2>
+            <div class="preset-controls"><label for="preset-select">Preset<select id="preset-select"></select></label><button class="quiet" id="load-preset">Load preset</button><label for="preset-name">Name<input id="preset-name" type="text" maxlength="60" placeholder="Preset name"></label><button class="quiet" id="save-preset">Save preset</button></div>
+            <p id="preset-description" class="small"></p>
+            <p id="preset-message" class="small" role="status" hidden></p>
+        </section>
+        <section class="panel requirements" aria-labelledby="requirements-heading">
+            <div class="section-heading"><h2 id="requirements-heading">Kingdom requirements</h2><button class="quiet" id="reset-requirements">Reset to zero</button></div>
+            <div id="requirement-sliders"></div>
+        </section>
+        <section class="panel game-options" id="game-options" aria-labelledby="options-heading" hidden>
+            <h2 id="options-heading">Landscapes</h2>
+            <div class="options">
+                <label class="landscape-count-label" for="landscape-count">Number of landscapes <output id="landscape-value" for="landscape-count">0</output><input id="landscape-count" type="range" min="0" max="4" value="0" step="1"></label>
+            </div>
+            <p id="landscape-recommendation" class="small" hidden>Only 2 landscapes are recommended.</p>
+            <div id="landscape-types" class="landscape-types"></div>
+        </section>
+        <button class="primary generate" id="generate"><span aria-hidden="true">⤨</span> Pick Kingdom Cards</button>
+        <div id="announcements" class="sr-only" role="status" aria-live="polite"></div>
+        <div id="error-notice" class="warning" role="alert" hidden></div>
+        <section aria-label="Kingdom cards">
+            <div id="kingdom" class="kingdom"></div>
+        </section>
+        <section id="chosen-landscapes" class="chosen-landscapes" aria-labelledby="chosen-landscapes-heading" hidden>
+            <h2 id="chosen-landscapes-heading">Landscapes</h2>
+            <div id="landscape-cards" class="landscape-cards"></div>
+        </section>
+        <section id="setup" class="setup panel" aria-labelledby="setup-heading"></section>
+        <footer><p>An unofficial companion for Dominion, by Donald X. Vaccarino / Rio Grande Games.</p><p>Card data: <a href="https://wiki.dominionstrategy.com">Dominion Strategy Wiki</a>, <a href="https://github.com/KLongmuir/dominion-card-data">KLongmuir</a> &amp; <a href="https://github.com/sgraaf/dominion-setup">sgraaf</a>. <a href="THIRD_PARTY.md">Credits &amp; licenses</a>. <span id="data-version"></span></p></footer>
+    </main>
+    <dialog id="card-dialog" aria-labelledby="dialog-heading">
+        <div class="dialog-header"><h2 id="dialog-heading">Choose a replacement</h2><button id="close-dialog" class="quiet" aria-label="Close replacement picker">✕</button></div>
+        <label class="search-label" for="card-search">Search your unused cards</label><input id="card-search" type="search" placeholder="Card name, expansion, or type…" autocomplete="off">
+        <p class="small" id="result-count"></p><div id="card-results" class="card-results"></div>
+    </dialog>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Generated static site (rebuild with npm run build)
+/dist/
+
+# Dependencies and package-manager caches
+node_modules/
+.npm/
+.yarn/cache/
+.pnpm-store/
+
+# Logs and test output
+*.log
+/coverage/
+/.nyc_output/
+/test-results/
+/playwright-report/
+/test/*preview.png
+
+# Local environment overrides; keep example files shareable
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Editor and operating-system temporary files
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,78 @@
+{
+  "Adventures": {
+    "file": "assets/symbols/adventures.png",
+    "url": "https://wiki.dominionstrategy.com/images/5/5e/Adventures_icon.png"
+  },
+  "Alchemy": {
+    "file": "assets/symbols/alchemy.png",
+    "url": "https://wiki.dominionstrategy.com/images/6/6a/Alchemy_icon.png"
+  },
+  "Allies": {
+    "file": "assets/symbols/allies.png",
+    "url": "https://wiki.dominionstrategy.com/images/3/3d/Allies_icon.png"
+  },
+  "Base": {
+    "file": "assets/symbols/base.png",
+    "url": "https://wiki.dominionstrategy.com/images/b/b0/Dominion_icon.png"
+  },
+  "Cornucopia & Guilds": {
+    "file": "assets/symbols/cornucopia-guilds.png",
+    "url": "https://wiki.dominionstrategy.com/images/4/4d/Cornucopia_%26_Guilds_icon.png"
+  },
+  "Dark Ages": {
+    "file": "assets/symbols/dark-ages.png",
+    "url": "https://wiki.dominionstrategy.com/images/1/1b/Dark_Ages_icon.png"
+  },
+  "Empires": {
+    "file": "assets/symbols/empires.png",
+    "url": "https://wiki.dominionstrategy.com/images/2/2a/Empires_icon.png"
+  },
+  "Hinterlands": {
+    "file": "assets/symbols/hinterlands.png",
+    "url": "https://wiki.dominionstrategy.com/images/2/28/Hinterlands_icon.png"
+  },
+  "Intrigue": {
+    "file": "assets/symbols/intrigue.png",
+    "url": "https://wiki.dominionstrategy.com/images/c/cf/Intrigue_icon.png"
+  },
+  "Menagerie": {
+    "file": "assets/symbols/menagerie.png",
+    "url": "https://wiki.dominionstrategy.com/images/d/d4/Menagerie_(expansion)_icon.png"
+  },
+  "Nocturne": {
+    "file": "assets/symbols/nocturne.png",
+    "url": "https://wiki.dominionstrategy.com/images/a/aa/Nocturne_icon.png"
+  },
+  "Plunder": {
+    "file": "assets/symbols/plunder.png",
+    "url": "https://wiki.dominionstrategy.com/images/b/b8/Plunder_(expansion)_icon.png"
+  },
+  "Promo": {
+    "file": "assets/symbols/promo.png",
+    "url": "https://wiki.dominionstrategy.com/images/a/a0/Promo_icon.png"
+  },
+  "Prosperity": {
+    "file": "assets/symbols/prosperity.png",
+    "url": "https://wiki.dominionstrategy.com/images/f/fb/Prosperity_icon.png"
+  },
+  "Renaissance": {
+    "file": "assets/symbols/renaissance.png",
+    "url": "https://wiki.dominionstrategy.com/images/4/4c/Renaissance_icon.png"
+  },
+  "Rising Sun": {
+    "file": "assets/symbols/rising-sun.png",
+    "url": "https://wiki.dominionstrategy.com/images/5/5a/Rising_Sun_icon.png"
+  },
+  "Seaside": {
+    "file": "assets/symbols/seaside.png",
+    "url": "https://wiki.dominionstrategy.com/images/c/c5/Seaside_icon.png"
+  },
+  "Cornucopia": {
+    "file": "assets/symbols/cornucopia.png",
+    "url": "https://wiki.dominionstrategy.com/images/2/20/Cornucopia_icon.png"
+  },
+  "Guilds": {
+    "file": "assets/symbols/guilds.png",
+    "url": "https://wiki.dominionstrategy.com/images/3/36/Guilds_icon.png"
+  }
+}

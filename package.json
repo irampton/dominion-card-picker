@@ -1,0 +1,11 @@
+{
+  "name": "dominion-card-picker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/build-data.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "dev": "node scripts/serve.mjs"
+  }
+}
