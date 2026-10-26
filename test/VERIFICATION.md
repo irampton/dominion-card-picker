@@ -42,3 +42,15 @@ Setup data uses the requested repository snapshots. Sun-token quantities were cr
 Attack controls: 36 tests pass, including conditional response feasibility against exhaustive enumeration, locked attacks, cost caps, indirect attacks and blockers, and attack-free optional setup. Browser verified Allow Attacks disables the Attack slider and hides response controls; requiring a blocker with an Attack in Dominion adds Moat; Prosperity permits general responses but disables the blocker checkbox. No browser console errors.
 
 Requirement ranges: 37 tests pass. Added preset round-trip and 100 constrained draws enforcing type and keyword caps. Browser verified zero Attack maximum, simultaneous trash minimum / maximum, successful generation without Attacks, and values preserved after reload; no console errors.
+
+Desktop sidebar: 38 tests pass after rebuilding. At 1440px, browser measured columns of 314px / 943px with a 24px gap; Sets and Preset occupy the sidebar. At 390px the layout returns to a single stack. Neither viewport has horizontal page overflow.
+
+Landscape overlays: 39 tests pass, including replacement ownership / type filters, uniqueness, cache stability, and required Ally / Prophecy types. Browser verified opening controls, random replacement, choosing a specific replacement from the dialog, and preservation of the other three landscapes; no console errors.
+
+Right sidebar and compact landscapes: 39 tests pass. At desktop width, browser verified the sidebar is right of main content; collapsing Sets expands Kingdom from 943px to the entire 1281px content area. Four landscapes each measure 220px and are centered. Mobile stays stacked at 390px with no horizontal overflow.
+
+Quick requirements: 39 tests pass after rebuilding. Browser verified collapsed initial sections, checkbox setting +2 Actions minimum to one, slider zero clearing the checkbox, maximum zero disabling it, restoring maximum and increasing minimum checking it, and open-section preservation. No console errors.
+
+Attack option responsiveness: replacement-button availability now stops at the first valid candidate and shares empty-slot checks, rather than enumerating every candidate for every slot. All 39 tests pass. Browser with all sets selected completed both response checkbox actions in 567ms including automation overhead; attack labels share one row below quick requirements. Landscape / kingdom widths match at 276px with Sets collapsed, 200px open, and 163px mobile, with no mobile overflow or console errors.
+
+Default preset and persistence: all 39 tests pass. Fresh localhost origin showed Completely Random selected, zero quick requirements, and collapsed sections. Existing-origin reload restored Engine Builder selection, checked Buy requirement, open Card types, closed other sections, sets and landscape settings, and existing custom preset. No empty preset option remains. Four landscape backs appeared before picking; computed rotation is 90 degrees. No console errors.

@@ -2,6 +2,13 @@ export function compareCards(a, b) {
     return a.cost.coins - b.cost.coins || Number(a.cost.potion) - Number(b.cost.potion) || a.cost.debt - b.cost.debt || a.name.localeCompare(b.name, 'en');
 }
 
+export function compareKingdomCards(a, b, mode = 'Cost', setName = card => card.set === 'Base' ? 'Dominion' : card.set) {
+    if (mode === 'Set') {
+        return setName(a).localeCompare(setName(b), 'en') || a.name.localeCompare(b.name, 'en');
+    }
+    return mode === 'Name' ? a.name.localeCompare(b.name, 'en') : compareCards(a, b);
+}
+
 export function costLabel(card) {
     return [card.cost.coins || (!card.cost.debt && !card.cost.potion) ? `$${card.cost.coins}` : '', card.cost.potion ? '1 Potion' : '', card.cost.debt ? `${card.cost.debt} Debt` : ''].filter(Boolean).join(' + ') + (card.cost.extra || '');
 }
@@ -61,6 +68,21 @@ export function replacementCandidates(pool, kingdom, extras = [], requirements =
 }
 
 // Setup choices are cached per kingdom, so a swap does not reroll unrelated extras.
+export function landscapeReplacementCandidates(db, kingdom, pool, options, cache, current) {
+    if (!current) {
+        return [];
+    }
+    const key = Object.keys(cache).find(key => /^(landscape-\d+|ally|prophecy)$/.test(key) && cache[key] === current.id);
+    if (!key) {
+        return [];
+    }
+    const existing = resolveSetup(db, kingdom, pool, options, { ...cache }).landscapes;
+    return db.cards.filter(card => card.purpose === 'Landscape' && !existing.some(item => item.id === card.id) && (
+        key === 'ally' ? card.types.includes('Ally') : key === 'prophecy' ? card.types.includes('Prophecy') :
+            card.types.some(type => options.landscapeTypes?.includes(type)) && card.editions.some(edition => options.selections?.includes(`${card.set}:${edition}`))
+    )).filter(card => resolveSetup(db, kingdom, pool, options, { ...cache, [key]: card.id }).landscapes.some(item => item.id === card.id)).sort((a, b) => a.name.localeCompare(b.name, 'en'));
+}
+
 export function resolveSetup(db, kingdom, pool, options = {}, cache = {}, random = Math.random) {
     const byName = new Map(db.cards.map(card => [card.name, card]));
     const used = new Set(kingdom.map(card => card.id));

@@ -55,3 +55,11 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for data licensing and artwork credits. Upd
 
 
 Card type and keyword requirements use paired minimum / maximum sliders. Maximums default to the available feasible count, account for overlapping rules and locked cards, and persist in local settings and presets. Reset to zero clears custom maximums as well as minimums.
+
+Below Pick Kingdom Cards, the toolbar places Copy setup on the left and Cost / Name / Set sort radio buttons on the right. Cost orders by coin / Potion / Debt, then name; Set orders by displayed expansion name, then card name. Sorting reorders the existing kingdom without drawing cards and remembers the choice locally. Copy setup stays disabled until a complete setup is available.
+
+Landscape cards share the kingdom hover / tap overlay for choosing a replacement, drawing a random replacement, and opening card rules. Replacements exclude current landscapes and respect selected sets, enabled landscape types, and attack policy; required Allies and Prophecies keep their respective types. Setup materials and extra piles are recalculated after replacement. Landscapes do not gain kingdom locks.
+
+Attack controls and four quick requirement checkboxes sit directly below the Kingdom requirements heading. Quick checkboxes set +2 Actions, 2+ draw, +Buy, and trashing minimums to at least one; unchecking clears that minimum. Slider changes update the corresponding checkbox, and infeasible quick requirements are disabled. All three requirement sections start collapsed; open sections stay open during control edits.
+
+First visits load Completely Random, with no placeholder option in the preset menu. Later visits restore the selected preset, current settings, Sets / Promos collapsed states, and each requirement section's open state from local storage. Custom presets remain separately stored. Enabled optional landscapes show sideways randomizer backs before picking; the same rotated backs are used during reveal animations.

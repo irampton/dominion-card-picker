@@ -13,6 +13,8 @@
         <a class="brand" href="./" aria-label="Dominion Kingdom Picker home"><span class="crest" aria-hidden="true">♜</span><span>Dominion Kingdom Picker</span></a>
     </header>
     <main>
+        <div class="picker-layout">
+        <aside class="picker-sidebar" aria-label="Collection and presets">
         <details class="collection panel" id="collection" open>
             <summary><h2 id="collection-heading">Sets</h2><span class="text-actions"><button id="select-all" type="button">Select all</button><button id="select-none" type="button">Clear</button></span></summary>
             <div id="sets" class="sets"></div>
@@ -24,6 +26,8 @@
             <p id="preset-description" class="small"></p>
             <p id="preset-message" class="small" role="status" hidden></p>
         </section>
+        </aside>
+        <div class="picker-content">
         <section class="panel requirements" aria-labelledby="requirements-heading">
             <div class="section-heading"><h2 id="requirements-heading">Kingdom requirements</h2><button class="quiet" id="reset-requirements">Reset to zero</button></div>
             <div id="requirement-sliders"></div>
@@ -36,7 +40,7 @@
             <p id="landscape-recommendation" class="small" hidden>Only 2 landscapes are recommended.</p>
             <div id="landscape-types" class="landscape-types"></div>
         </section>
-        <button class="primary generate" id="generate"><span aria-hidden="true">⤨</span> Pick Kingdom Cards</button>
+        <div class="kingdom-controls"><button class="primary generate" id="generate"><span aria-hidden="true">⤨</span> Pick Kingdom Cards</button><div class="kingdom-toolbar"><button class="quiet" id="copy" disabled>Copy setup</button><div class="kingdom-sort" id="sort-kingdom" role="radiogroup" aria-label="Sort kingdom cards"><span>Sort:</span><label><input type="radio" name="kingdom-sort" value="Cost" checked>Cost</label><label><input type="radio" name="kingdom-sort" value="Name">Name</label><label><input type="radio" name="kingdom-sort" value="Set">Set</label></div></div></div>
         <div id="announcements" class="sr-only" role="status" aria-live="polite"></div>
         <div id="error-notice" class="warning" role="alert" hidden></div>
         <section aria-label="Kingdom cards">
@@ -47,6 +51,8 @@
             <div id="landscape-cards" class="landscape-cards"></div>
         </section>
         <section id="setup" class="setup panel" aria-labelledby="setup-heading"></section>
+        </div>
+        </div>
         <footer><p>An unofficial companion for Dominion, by Donald X. Vaccarino / Rio Grande Games.</p><p>Card data: <a href="https://wiki.dominionstrategy.com">Dominion Strategy Wiki</a>, <a href="https://github.com/KLongmuir/dominion-card-data">KLongmuir</a> &amp; <a href="https://github.com/sgraaf/dominion-setup">sgraaf</a>. <a href="THIRD_PARTY.md">Credits &amp; licenses</a>. <span id="data-version"></span></p></footer>
     </main>
     <dialog id="card-dialog" aria-labelledby="dialog-heading">

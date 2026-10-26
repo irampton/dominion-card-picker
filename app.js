@@ -1,4 +1,4 @@
-import { compareCards, costLabel, drawKingdom, ownedCards, pileCountNote, resolveSetup, shuffle } from './engine.js';
+import { compareCards, compareKingdomCards, costLabel, drawKingdom, landscapeReplacementCandidates, ownedCards, pileCountNote, resolveSetup, shuffle } from './engine.js';
 import { costDefinitions, requirementCountLimits, requirementDefinitions, requiredKingdom } from './requirements.js';
 import { builtInPresets, presetConstraints, presetState } from './presets.js';
 import { attackRuleSet, buildAttackProfiles, normalizeAttackOptions } from './attacks.js';
@@ -8,13 +8,24 @@ const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&
 const storageKey = 'dominion-picker-v1';
 const presetStorageKey = 'dominion-picker-presets-v1';
 let customPresets = [];
+let activePreset = 'builtin:random';
+let requirementGroups = {};
 let db;
 let selections = ['Base:2'];
 let kingdom = [];
+const sortModes = ['Cost', 'Name', 'Set'];
+let sortMode = 'Cost';
 let setup;
 let cache = {};
 let replacing;
+let replacingLandscape = false;
 const landscapeKinds = ['Event', 'Landmark', 'Project', 'Way', 'Trait'];
+const quickRequirements = [
+    { id: 'keyword-actions', label: 'Require +2 Action' },
+    { id: 'keyword-draw-two', label: 'Require 2+ Draw' },
+    { id: 'keyword-buy', label: 'Require Buy' },
+    { id: 'keyword-trash', label: 'Require Trashing' }
+];
 let options = { landscapes: 0, landscapeTypes: [...landscapeKinds] };
 let editionChoices = {};
 let collectionOpen = true;
@@ -39,7 +50,7 @@ function announce(message, error = false) {
 
 function save() {
     try {
-        localStorage.setItem(storageKey, JSON.stringify({ selections, options, editionChoices, collectionOpen, promosOpen, requirements, requirementCaps, costExact, costRanges, attackOptions }));
+        localStorage.setItem(storageKey, JSON.stringify({ selections, options, editionChoices, collectionOpen, promosOpen, requirements, requirementCaps, costExact, costRanges, attackOptions, sortMode, activePreset, requirementGroups }));
     } catch {
         // Private browsing and file URLs may deny storage; the picker still works.
     }
@@ -49,9 +60,10 @@ function pool() {
     return ownedCards(db, selections);
 }
 
-function renderPresets(selected = $('preset-select').value || '') {
-    $('preset-select').innerHTML = `<option value="">Choose a preset…</option><optgroup label="Included presets">${builtInPresets.map(preset => `<option value="builtin:${preset.id}">${escapeHtml(preset.name)}</option>`).join('')}</optgroup>${customPresets.length ? `<optgroup label="Your presets">${customPresets.map(preset => `<option value="custom:${escapeHtml(preset.id)}">${escapeHtml(preset.name)}</option>`).join('')}</optgroup>` : ''}`;
-    $('preset-select').value = selected;
+function renderPresets(selected = activePreset) {
+    $('preset-select').innerHTML = `<optgroup label="Included presets">${builtInPresets.map(preset => `<option value="builtin:${preset.id}">${escapeHtml(preset.name)}</option>`).join('')}</optgroup>${customPresets.length ? `<optgroup label="Your presets">${customPresets.map(preset => `<option value="custom:${escapeHtml(preset.id)}">${escapeHtml(preset.name)}</option>`).join('')}</optgroup>` : ''}`;
+    activePreset = [...$('preset-select').options].some(option => option.value === selected) ? selected : 'builtin:random';
+    $('preset-select').value = activePreset;
     updatePresetDescription();
 }
 
@@ -124,6 +136,7 @@ function savePreset() {
         localStorage.setItem(presetStorageKey, JSON.stringify(updated));
         customPresets = updated;
         renderPresets(`custom:${preset.id}`);
+        save();
         presetMessage(`Saved ${name}.`);
     } catch {
         presetMessage('This browser cannot save presets locally. Allow local storage and try again.', true);
@@ -193,15 +206,20 @@ function cardHtml(card) {
     </article>`;
 }
 
-function expansionPill(card) {
+function expansionSet(card) {
     const standalone = card.ownership?.find(key => selections.includes(key));
-    const set = standalone && !selections.some(key => key.startsWith('Cornucopia & Guilds:')) ? standalone.split(':')[0] : card.set;
+    return standalone && !selections.some(key => key.startsWith('Cornucopia & Guilds:')) ? standalone.split(':')[0] : card.set;
+}
+
+function expansionPill(card) {
+    const set = expansionSet(card);
     const symbol = setSymbols[set];
     return `<div class="expansion-pill">${symbol ? `<img src="${symbol.src || `./${symbol.file}`}" alt="" aria-hidden="true">` : ''}<span>${escapeHtml(set === 'Base' ? 'Dominion' : set)}</span></div>`;
 }
 
 function landscapeHtml(card) {
-    return `<article class="landscape-card"><div class="card-visual"><a href="${card.wikiUrl}" target="_blank" rel="noopener" aria-label="${escapeHtml(card.name)} rules"><img class="card-art" src="${card.imageUrl}" alt="${escapeHtml(card.name)}" loading="lazy"><div class="art-fallback" hidden><strong>${escapeHtml(card.name)}</strong>${escapeHtml(card.text)}</div></a></div>${expansionPill(card)}</article>`;
+    const available = landscapeReplacementCandidates(db, kingdom, setupPool(), activeOptions(), cache, card).length;
+    return `<article class="card landscape-card" data-id="${card.id}"><div class="card-visual"><button class="art-toggle" data-action="toggle" aria-expanded="false" aria-label="Show controls for ${escapeHtml(card.name)}"><img class="card-art" src="${card.imageUrl}" alt="${escapeHtml(card.name)}" loading="lazy"><div class="art-fallback" hidden><strong>${escapeHtml(card.name)}</strong>${escapeHtml(card.text)}</div></button><div class="card-actions"><button class="overlay-close" data-action="close" aria-label="Close controls for ${escapeHtml(card.name)}">✕</button><button data-action="choose" ${available ? '' : 'disabled'} aria-label="Choose a replacement for ${escapeHtml(card.name)}">Choose card…</button><button data-action="random" ${available ? '' : 'disabled'} aria-label="Replace ${escapeHtml(card.name)} with a random card">⤨ Random card</button><a href="${card.wikiUrl}" target="_blank" rel="noopener">Card rules ↗</a></div></div>${expansionPill(card)}</article>`;
 }
 
 function lockHtml(locked, name) {
@@ -212,6 +230,14 @@ function emptyHtml(index) {
     return `<article class="card empty-card" data-id="empty-${index}"><div class="card-visual"><button class="art-toggle" data-action="toggle" aria-expanded="false" aria-label="Show controls for empty slot ${index + 1}"><img class="card-art" src="./assets/randomizer-back.jpg" alt="Dominion randomizer card back"><div class="art-fallback back-fallback" hidden>Dominion</div></button><div class="card-actions"><button class="overlay-close" data-action="close" aria-label="Close controls for empty slot ${index + 1}">✕</button><button data-action="choose" aria-label="Choose a card for empty slot ${index + 1}">Choose card…</button></div></div></article>`;
 }
 
+function renderLandscapes(complete = false) {
+    const cards = complete ? setup.landscapes : [];
+    const available = db.cards.filter(card => card.purpose === 'Landscape' && card.types.some(type => options.landscapeTypes.includes(type)) && card.editions.some(edition => selections.includes(`${card.set}:${edition}`)));
+    const count = complete ? cards.length : Math.min(activeOptions().landscapes, available.length);
+    $('chosen-landscapes').hidden = count === 0;
+    $('landscape-cards').innerHTML = complete ? cards.map(landscapeHtml).join('') : Array.from({ length: count }, () => `<article class="card landscape-card empty-landscape"><div class="card-visual landscape-back"><img src="./assets/randomizer-back.jpg" alt="Dominion landscape randomizer card back"></div></article>`).join('');
+}
+
 function fixedCards() {
     return kingdom.filter(card => lockedIds.has(card.id));
 }
@@ -219,7 +245,7 @@ function fixedCards() {
 function settingsChanged() {
     pendingSettings = true;
     $('setup').hidden = true;
-    $('chosen-landscapes').hidden = true;
+    renderLandscapes();
     if ($('copy')) {
         $('copy').disabled = true;
     }
@@ -229,8 +255,13 @@ function settingsChanged() {
 }
 
 function updateCardControls() {
+    const availability = new Map();
     $('kingdom').querySelectorAll('.card').forEach(element => {
-        const available = candidatesFor(element.dataset.id).length;
+        const key = element.classList.contains('empty-card') ? 'empty' : element.dataset.id;
+        if (!availability.has(key)) {
+            availability.set(key, candidatesFor(element.dataset.id, true).length > 0);
+        }
+        const available = availability.get(key);
         element.querySelectorAll('[data-action="choose"], [data-action="random"]').forEach(button => { button.disabled = !available; });
     });
 }
@@ -342,7 +373,7 @@ function costSpreadHtml(available, bounds) {
         const priceControls = dualRangeHtml(`${id}-prices`, bounds.low, bounds.high, range.low, range.high, { label: `Cost range ${range.id} price`, data: `data-cost-id="${id}" data-kind="price"` });
         return `<div class="cost-band">${range.active ? `<button class="remove-cost-range" data-remove-cost="${range.id}" aria-label="Remove cost range ${range.id}" title="Remove range">X</button>` : ''}${countPair(id, range.active ? range : null, `between $<output id="${id}-low-value">${range.low}</output> and $<output id="${id}-high-value">${range.high}</output>`, priceControls)}</div>`;
     }).join('') : '';
-    return `<details class="requirement-group" open><summary>Cost Spread</summary><div class="cost-grid">${exact}</div><div class="cost-bands">${ranges}</div></details>`;
+    return `<details class="requirement-group"><summary>Cost Spread</summary><div class="cost-grid">${exact}</div><div class="cost-bands">${ranges}</div></details>`;
 }
 
 function renderRequirements() {
@@ -377,7 +408,11 @@ function renderRequirements() {
     }
     const costBounds = normalizeCosts(available);
     const state = constraintState();
-    $('requirement-sliders').innerHTML = ['Card types', 'Card effects & keywords'].map(group => `<details class="requirement-group" open><summary>${group}</summary>${group === 'Card types' ? attackControlsHtml(available) : ''}<div class="requirement-grid">${definitions.filter(definition => definition.group === group && available.some(definition.matches)).map(definition => {
+    const quickControls = `<div class="quick-requirements">${quickRequirements.map(({ id, label }) => {
+        const canRequire = Boolean(requiredKingdom(available, { ...state.lower, [id]: Math.max(1, state.lower[id] || 0) }, state.allDefinitions, 10, eligibleLocks(), state.upper, state.conditions));
+        return `<label><input id="quick-${id}" type="checkbox" data-quick-requirement="${id}" ${(requirements[id] || 0) > 0 ? 'checked' : ''} ${canRequire ? '' : 'disabled'}>${label}</label>`;
+    }).join('')}</div>`;
+    $('requirement-sliders').innerHTML = quickControls + attackControlsHtml(available) + ['Card types', 'Card effects & keywords'].map(group => `<details class="requirement-group"><summary>${group}</summary><div class="requirement-grid">${definitions.filter(definition => definition.group === group && available.some(definition.matches)).map(definition => {
         const limits = requirementCountLimits(available, state.lower, state.allDefinitions, definition.id, eligibleLocks(), state.upper, state.conditions);
         const max = limits.max;
         const total = available.filter(definition.matches).length;
@@ -386,17 +421,26 @@ function renderRequirements() {
         const id = definition.id;
         return `<div class="requirement-slider"><span>Require between <output id="${id}-min-value">${value}</output> and <output id="${id}-max-value">${cap}</output> ${escapeHtml(definition.label)}</span>${dualRangeHtml(id, 0, max, value, cap, { label: escapeHtml(definition.label), data: `data-requirement-id="${id}"` }, { minCeiling: cap, maxFloor: Math.max(value, limits.min) })}<small>Maximum ${max} · Total available ${total}</small></div>`;
     }).join('')}</div></details>`).join('') + costSpreadHtml(available, costBounds);
+    $('requirement-sliders').querySelectorAll('.requirement-group').forEach(group => {
+        group.open = requirementGroups[group.querySelector('summary').textContent] === true;
+    });
     return adjusted || costBounds.adjusted;
 }
 
-function candidatesFor(id) {
+function candidatesFor(id, firstOnly = false) {
     const remaining = kingdom.filter(card => card.id !== id);
     const used = new Set(kingdom.map(card => card.id));
     const extras = new Set((!pendingSettings ? setup?.extras || [] : []).map(item => item.card.id));
     const state = constraintState();
     const externalAttack = attackOptions.requireResponse && !pendingSettings && [...(setup?.extras.map(item => item.card) || []), ...(setup?.landscapes || [])].some(card => attackProfiles.get(card.id)?.attack || card.name === 'Approaching Army');
     const lower = externalAttack ? { ...state.lower, 'policy-response': 1 } : state.lower;
-    return pool().filter(card => !used.has(card.id) && !extras.has(card.id) && requiredKingdom(pool(), lower, state.allDefinitions, 10, [...remaining, card], state.upper, state.conditions)).sort(compareCards);
+    const available = pool();
+    const matches = card => !used.has(card.id) && !extras.has(card.id) && requiredKingdom(available, lower, state.allDefinitions, 10, [...remaining, card], state.upper, state.conditions);
+    if (firstOnly) {
+        const card = available.find(matches);
+        return card ? [card] : [];
+    }
+    return available.filter(matches).sort(compareCards);
 }
 
 function listBlock(title, entries) {
@@ -417,7 +461,7 @@ function renderSetup() {
         ...setup.extras.map(item => `${wikiLink(item.card)}${/set-aside|Black Market/.test(item.label) ? ' <span class="pile-count">1 card.</span>' : quantityHtml(item.card)} <span class="reason">${escapeHtml(item.label)}</span>`),
         ...setup.companions.map(item => `${item.card ? wikiLink(item.card) + quantityHtml(item.card) : escapeHtml(item.name)} <span class="reason">${escapeHtml([...item.reasons].join(', '))}</span>`)
     ];
-    $('setup').innerHTML = `<div class="section-heading"><h2 id="setup-heading">Bring to the table</h2><button class="quiet" id="copy">Copy setup</button></div>
+    $('setup').innerHTML = `<div class="section-heading"><h2 id="setup-heading">Bring to the table</h2></div>
         ${setup.warnings.map(text => `<p class="warning">${escapeHtml(text)}</p>`).join('')}
         <div class="setup-columns"><div>${listBlock('Basic Supply', [...['Copper', 'Silver', 'Gold', 'Estate', 'Duchy', 'Province', 'Curse'].map(name => {
             const card = db.cards.find(item => item.name === name);
@@ -430,13 +474,16 @@ function renderSetup() {
 }
 
 function render() {
-    kingdom.sort(compareCards);
+    kingdom.sort((a, b) => compareKingdomCards(a, b, sortMode, card => expansionSet(card) === 'Base' ? 'Dominion' : expansionSet(card)));
+    document.querySelectorAll('input[name="kingdom-sort"]').forEach(input => {
+        input.checked = input.value === sortMode;
+    });
     const complete = kingdom.length === 10 && !pendingSettings;
+    $('copy').disabled = !complete;
     setup = complete ? resolveSetup(db, kingdom, setupPool(), activeOptions(), cache) : null;
     $('setup').hidden = !complete;
     $('kingdom').innerHTML = kingdom.map(cardHtml).join('') + Array.from({ length: 10 - kingdom.length }, (_, index) => emptyHtml(index)).join('');
-    $('chosen-landscapes').hidden = !complete || !setup.landscapes.length;
-    $('landscape-cards').innerHTML = complete ? setup.landscapes.map(landscapeHtml).join('') : '';
+    renderLandscapes(complete);
     document.querySelectorAll('#kingdom img, #landscape-cards img').forEach(img => {
         img.addEventListener('error', () => {
             img.hidden = true;
@@ -542,6 +589,19 @@ function changeCollection(event) {
 }
 
 function replaceWith(card, manual = true) {
+    if (replacingLandscape) {
+        const current = setup?.landscapes.find(item => item.id === replacing);
+        if (!current || !landscapeReplacementCandidates(db, kingdom, setupPool(), activeOptions(), cache, current).some(item => item.id === card.id)) {
+            return;
+        }
+        const key = Object.keys(cache).find(key => /^(landscape-\d+|ally|prophecy)$/.test(key) && cache[key] === replacing);
+        cache[key] = card.id;
+        render();
+        $('card-dialog').close();
+        $('landscape-cards').querySelector(`[data-id="${card.id}"] [data-action="choose"]`)?.focus();
+        announce(`${current.name} replaced with ${card.name}.`);
+        return;
+    }
     const index = kingdom.findIndex(item => item.id === replacing);
     const oldName = index >= 0 ? kingdom[index].name : 'Empty slot';
     if (index >= 0) {
@@ -564,7 +624,8 @@ function replaceWith(card, manual = true) {
 
 function renderResults() {
     const query = $('card-search').value.trim().toLocaleLowerCase();
-    const candidates = candidatesFor(replacing).filter(card => `${card.name} ${card.set} ${card.types.join(' ')}`.toLocaleLowerCase().includes(query));
+    const current = setup?.landscapes.find(card => card.id === replacing);
+    const candidates = (replacingLandscape ? (current ? landscapeReplacementCandidates(db, kingdom, setupPool(), activeOptions(), cache, current) : []) : candidatesFor(replacing)).filter(card => `${card.name} ${card.set} ${card.types.join(' ')}`.toLocaleLowerCase().includes(query));
     $('result-count').textContent = `${candidates.length} available cards · matching your collection and requirements`;
     $('card-results').innerHTML = candidates.length ? candidates.map(card => `<button class="result" data-id="${card.id}"><span>${escapeHtml(card.name)}<small>${escapeHtml(card.set)} · ${escapeHtml(card.types.join(' · '))}</small></span><span class="cost">${escapeHtml(costLabel(card))}</span></button>`).join('') : '<p>No matching unused cards. Try another search.</p>';
 }
@@ -599,7 +660,11 @@ async function init() {
             customPresets = [];
         }
         renderPresets();
-        $('preset-select').addEventListener('change', updatePresetDescription);
+        $('preset-select').addEventListener('change', () => {
+            activePreset = $('preset-select').value;
+            updatePresetDescription();
+            save();
+        });
         $('load-preset').addEventListener('click', loadPreset);
         $('save-preset').addEventListener('click', savePreset);
         $('preset-name').addEventListener('keydown', event => {
@@ -620,6 +685,9 @@ async function init() {
             editionChoices = saved.editionChoices || {};
             collectionOpen = saved.collectionOpen ?? true;
             promosOpen = saved.promosOpen ?? false;
+            sortMode = sortModes.includes(saved.sortMode) ? saved.sortMode : 'Cost';
+            activePreset = typeof saved.activePreset === 'string' ? saved.activePreset : 'builtin:random';
+            requirementGroups = saved.requirementGroups && typeof saved.requirementGroups === 'object' ? saved.requirementGroups : {};
             requirements = saved.requirements || {};
             requirementCaps = presetState(saved).requirementCaps;
             attackOptions = normalizeAttackOptions(saved.attackOptions);
@@ -631,6 +699,15 @@ async function init() {
                 landscapeTypes: Array.isArray(saved.options?.landscapeTypes) ? saved.options.landscapeTypes.filter(type => landscapeKinds.includes(type)) : [...landscapeKinds]
             };
         }
+        if (!saved || !Array.isArray(saved.selections)) {
+            const random = presetState(builtInPresets.find(preset => preset.id === 'random').state);
+            requirements = random.requirements;
+            requirementCaps = random.requirementCaps;
+            costExact = random.costExact;
+            costRanges = random.costRanges;
+            attackOptions = random.attackOptions;
+        }
+        renderPresets();
         for (const set of db.sets.filter(set => set.sourceName !== 'Promo')) {
             const selected = set.editions.filter(edition => selections.includes(`${set.sourceName}:${edition}`));
             const edition = selected.length ? Math.max(...selected) : Number(editionChoices[set.sourceName]);
@@ -648,7 +725,23 @@ async function init() {
         $('data-version').textContent = `Catalog: ${db.generated}.`;
         render();
         $('generate').addEventListener('click', generate);
+        $('sort-kingdom').addEventListener('change', event => {
+            if (!sortModes.includes(event.target.value)) {
+                return;
+            }
+            sortMode = event.target.value;
+            render();
+            save();
+        });
         $('requirement-sliders').addEventListener('change', event => {
+            if (event.target.dataset.quickRequirement) {
+                const id = event.target.dataset.quickRequirement;
+                requirements[id] = event.target.checked ? Math.max(1, requirements[id] || 0) : 0;
+                renderRequirements();
+                settingsChanged();
+                $(`quick-${id}`)?.focus();
+                return;
+            }
             if (['allow-attacks', 'require-attack-response', 'block-attack-response'].includes(event.target.id)) {
                 const id = event.target.id;
                 const key = { 'allow-attacks': 'allowAttacks', 'require-attack-response': 'requireResponse', 'block-attack-response': 'blockResponse' }[id];
@@ -694,12 +787,24 @@ async function init() {
             settingsChanged();
             $(id)?.focus();
         });
+        $('requirement-sliders').addEventListener('toggle', event => {
+            if (event.target.matches('.requirement-group')) {
+                requirementGroups[event.target.querySelector('summary').textContent] = event.target.open;
+                save();
+            }
+        }, true);
         $('requirement-sliders').addEventListener('input', event => {
             if (event.target.matches('input[type="range"]')) {
                 if (event.target.dataset.requirementId) {
                     const input = event.target;
                     input.value = Math.max(Number(input.dataset.floor), Math.min(Number(input.dataset.ceiling), Number(input.value)));
                     $(input.dataset.requirementId + '-' + input.dataset.end + '-value').value = input.value;
+                    if (input.dataset.end === 'min') {
+                        const quick = $(`quick-${input.dataset.requirementId}`);
+                        if (quick) {
+                            quick.checked = Number(input.value) > 0;
+                        }
+                    }
                     return;
                 }
                 if (event.target.dataset.costId) {
@@ -761,12 +866,13 @@ async function init() {
             promosOpen = $('promos').open;
             save();
         });
-        $('kingdom').addEventListener('click', event => {
+        document.querySelector('.picker-content').addEventListener('click', event => {
             const button = event.target.closest('[data-action]');
             if (!button) {
                 return;
             }
             replacing = button.closest('.card').dataset.id;
+            replacingLandscape = button.closest('.card').classList.contains('landscape-card');
             if (button.dataset.action === 'lock') {
                 const card = kingdom.find(item => item.id === replacing);
                 if (lockedIds.has(card.id)) {
@@ -792,7 +898,7 @@ async function init() {
             if (button.dataset.action === 'toggle') {
                 const card = button.closest('.card');
                 const open = !card.classList.contains('controls-open');
-                $('kingdom').querySelectorAll('.controls-open').forEach(item => {
+                document.querySelectorAll('.controls-open').forEach(item => {
                     item.classList.remove('controls-open');
                     item.querySelector('.art-toggle').setAttribute('aria-expanded', 'false');
                 });
@@ -810,12 +916,13 @@ async function init() {
                 return;
             }
             if (button.dataset.action === 'random') {
-                const candidates = candidatesFor(replacing);
+                const current = setup?.landscapes.find(card => card.id === replacing);
+                const candidates = replacingLandscape ? landscapeReplacementCandidates(db, kingdom, setupPool(), activeOptions(), cache, current) : candidatesFor(replacing);
                 if (candidates.length) {
                     replaceWith(shuffle(candidates)[0], false);
                 }
             } else {
-                const current = kingdom.find(card => card.id === replacing);
+                const current = (replacingLandscape ? setup.landscapes : kingdom).find(card => card.id === replacing);
                 $('dialog-heading').textContent = current ? `Replace ${current.name}` : 'Choose a card';
                 $('card-search').value = '';
                 renderResults();
@@ -823,7 +930,7 @@ async function init() {
                 $('card-search').focus();
             }
         });
-        $('kingdom').addEventListener('keydown', event => {
+        document.querySelector('.picker-content').addEventListener('keydown', event => {
             if (event.key === 'Escape') {
                 event.target.closest('.card')?.classList.remove('controls-open');
                 event.target.closest('.card')?.querySelector('.art-toggle').setAttribute('aria-expanded', 'false');
@@ -838,10 +945,7 @@ async function init() {
                 replaceWith(db.cards.find(card => card.id === button.dataset.id));
             }
         });
-        $('setup').addEventListener('click', async event => {
-            if (!event.target.closest('#copy')) {
-                return;
-            }
+        $('copy').addEventListener('click', async () => {
             const text = ['DOMINION KINGDOM', ...kingdom.map(card => `${costLabel(card)} — ${card.name}`), ...(setup.landscapes.length ? ['', 'LANDSCAPES', ...setup.landscapes.map(card => card.name)] : []), '', $('setup').innerText.replace('Copy setup', '').trim()].join('\n');
             try {
                 await navigator.clipboard.writeText(text);

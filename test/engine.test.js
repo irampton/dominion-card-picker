@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { compareCards, costLabel, drawKingdom, ownedCards, pileCountNote, replacementCandidates, resolveSetup } from '../engine.js';
+import { compareCards, compareKingdomCards, costLabel, drawKingdom, landscapeReplacementCandidates, ownedCards, pileCountNote, replacementCandidates, resolveSetup } from '../engine.js';
 
 const db = JSON.parse(readFileSync('data/cards.json', 'utf8'));
 const byName = name => {
@@ -12,8 +12,44 @@ const byName = name => {
 };
 const selections = db.sets.flatMap(set => set.editions.map(edition => `${set.sourceName}:${edition}`));
 const pool = ownedCards(db, selections);
+
+test('kingdom sort modes use cost, name, or displayed set then name', () => {
+    const cards = ['Witch', 'Moat', 'Chapel', 'Alchemist', 'Apprentice', 'Village'].map(byName);
+    const names = mode => [...cards].sort((a, b) => compareKingdomCards(a, b, mode)).map(card => card.name);
+    assert.deepEqual(names('Cost'), [...cards].sort(compareCards).map(card => card.name));
+    assert.deepEqual(names('Name'), ['Alchemist', 'Apprentice', 'Chapel', 'Moat', 'Village', 'Witch']);
+    assert.deepEqual(names('Set'), ['Alchemist', 'Apprentice', 'Chapel', 'Moat', 'Village', 'Witch']);
+    assert.ok(compareKingdomCards(byName('Chapel'), byName('Apprentice'), 'Set', card => card.set === 'Base' ? 'A Dominion' : card.set) < 0);
+    assert.equal(cards[0].name, 'Witch');
+});
 const options = { colony: 'no', shelters: 'no', selections };
 const kingdomWith = names => [...names.map(byName), ...ownedCards(db, ['Base:2']).filter(card => !names.includes(card.name))].slice(0, 10);
+
+test('landscape replacements preserve ownership, type filters, uniqueness and cached choices', () => {
+    const selected = ['Menagerie:1'];
+    const owned = ownedCards(db, selected);
+    const kingdom = owned.slice(0, 10);
+    const config = { selections: selected, landscapes: 2, landscapeTypes: ['Way'] };
+    const cache = {};
+    const before = resolveSetup(db, kingdom, owned, config, cache);
+    const current = before.landscapes[0];
+    const choices = landscapeReplacementCandidates(db, kingdom, owned, config, cache, current);
+    assert.ok(choices.length);
+    assert.ok(choices.every(card => card.set === 'Menagerie' && card.types.includes('Way') && !before.landscapes.includes(card)));
+    const nextCache = { ...cache, 'landscape-0': choices[0].id };
+    const after = resolveSetup(db, kingdom, owned, config, nextCache);
+    assert.equal(after.landscapes[0].id, choices[0].id);
+    assert.equal(after.landscapes[1].id, before.landscapes[1].id);
+    assert.equal(cache['landscape-0'], current.id);
+    const specialCache = {};
+    const specialKingdom = kingdomWith(['Importer', 'Poet']);
+    const special = resolveSetup(db, specialKingdom, pool, options, specialCache);
+    for (const type of ['Ally', 'Prophecy']) {
+        const target = special.landscapes.find(card => card.types.includes(type));
+        const replacements = landscapeReplacementCandidates(db, specialKingdom, pool, options, specialCache, target);
+        assert.ok(replacements.length && replacements.every(card => card.types.includes(type)));
+    }
+});
 const setupFor = names => resolveSetup(db, kingdomWith(names), pool, options, {}, () => .5);
 
 test('pile quantities distinguish six-player Provinces, Curses, Ruins and Victory piles', () => {
