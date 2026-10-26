@@ -227,3 +227,7 @@ input[type='search'] { width: 100%; padding: 12px; border: 1px solid var(--line)
 @media (max-width: 480px) { .kingdom { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sets { grid-template-columns: 1fr 1fr; gap: 7px; } .set { padding: 9px 7px; font-size: 11px; } .set small { font-size: 9px; } .section-heading { align-items: start; } .text-actions { gap: 10px; flex-shrink: 0; } h2 { font-size: 19px; } .masthead .quiet { font-size: 11px; padding: 10px; } .card-body { padding: 10px; } }
 @media print { .masthead button, .intro, .collection, .card-actions, #copy, .status, footer { display: none; } .kingdom { grid-template-columns: repeat(5, 1fr); gap: 8px; } .card { break-inside: avoid; } .setup { break-before: page; } main { padding: 0; } }
 
+
+.set-spread-rows { display: grid; gap: 22px; margin-top: 20px; }
+.set-spread-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 180px); gap: 20px; align-items: center; }
+.set-spread-controls select { width: 100%; min-width: 0; }

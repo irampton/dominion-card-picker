@@ -36,6 +36,7 @@ let definitions = [];
 let attackOptions = normalizeAttackOptions();
 let attackProfiles = new Map();
 let costExact = {};
+let setSpread = [];
 let costRanges = [];
 let nextCostRange = 1;
 let setSymbols = {};
@@ -50,7 +51,7 @@ function announce(message, error = false) {
 
 function save() {
     try {
-        localStorage.setItem(storageKey, JSON.stringify({ selections, options, editionChoices, collectionOpen, promosOpen, requirements, requirementCaps, costExact, costRanges, attackOptions, sortMode, activePreset, requirementGroups }));
+        localStorage.setItem(storageKey, JSON.stringify({ selections, options, editionChoices, collectionOpen, promosOpen, requirements, requirementCaps, costExact, costRanges, attackOptions, sortMode, activePreset, requirementGroups, setSpread }));
     } catch {
         // Private browsing and file URLs may deny storage; the picker still works.
     }
@@ -278,6 +279,12 @@ function constraintState() {
             upper[definition.id] = rule.max;
         }
     }
+    for (const rule of setSpread) {
+        const id = `set:${rule.set}`;
+        allDefinitions.push({ id, matches: card => card.set === rule.set });
+        lower[id] = rule.min;
+        upper[id] = rule.max;
+    }
     return { allDefinitions, lower, upper, conditions: policy.conditions };
 }
 
@@ -373,7 +380,47 @@ function costSpreadHtml(available, bounds) {
         const priceControls = dualRangeHtml(`${id}-prices`, bounds.low, bounds.high, range.low, range.high, { label: `Cost range ${range.id} price`, data: `data-cost-id="${id}" data-kind="price"` });
         return `<div class="cost-band">${range.active ? `<button class="remove-cost-range" data-remove-cost="${range.id}" aria-label="Remove cost range ${range.id}" title="Remove range">X</button>` : ''}${countPair(id, range.active ? range : null, `between $<output id="${id}-low-value">${range.low}</output> and $<output id="${id}-high-value">${range.high}</output>`, priceControls)}</div>`;
     }).join('') : '';
-    return `<details class="requirement-group"><summary>Cost Spread</summary><div class="cost-grid">${exact}</div><div class="cost-bands">${ranges}</div></details>`;
+    return `<details class="requirement-group"><summary>Cost spread</summary><div class="cost-grid">${exact}</div><div class="cost-bands">${ranges}</div></details>`;
+}
+
+function normalizeSetSpread(available) {
+    const sets = [...new Set(available.map(card => card.set))].sort();
+    const used = new Set();
+    const rules = sets.length < 2 ? [] : setSpread.filter(rule => {
+        if (!rule || !sets.includes(rule.set) || used.has(rule.set)) {
+            return false;
+        }
+        used.add(rule.set);
+        return true;
+    });
+    setSpread = [];
+    for (const rule of rules) {
+        const state = constraintState();
+        const id = `set:${rule.set}`;
+        state.allDefinitions.push({ id, matches: card => card.set === rule.set });
+        const limits = requirementCountLimits(available, state.lower, state.allDefinitions, id, eligibleLocks(), state.upper, state.conditions);
+        const min = Math.max(limits.min, Math.min(limits.max, Math.floor(Number(rule.min) || 0)));
+        const max = Math.max(min, Math.min(limits.max, Math.floor(Number(rule.max) || 0)));
+        setSpread.push({ set: rule.set, min, max });
+    }
+    return sets;
+}
+
+function setSpreadHtml(available, sets) {
+    if (sets.length < 2) {
+        return '';
+    }
+    const state = constraintState();
+    const rows = [...setSpread];
+    if (rows.length < sets.length) {
+        rows.push({ set: '', min: 0, max: 10 });
+    }
+    return `<details class="requirement-group"><summary>Set spread</summary><div class="set-spread-rows">${rows.map((rule, index) => {
+        const choices = sets.filter(set => set === rule.set || !setSpread.some(item => item.set === set));
+        const id = `set-spread-${index}`;
+        const limits = rule.set ? requirementCountLimits(available, state.lower, state.allDefinitions, `set:${rule.set}`, eligibleLocks(), state.upper, state.conditions) : { min: 0, max: 10 };
+        return `<div class="cost-rule"><div>Require between <output id="${id}-min-value">${rule.min}</output> and <output id="${id}-max-value">${rule.max}</output> cards</div><div class="set-spread-controls"><div>${dualRangeHtml(id, 0, limits.max, rule.min, rule.max, { label: escapeHtml(rule.set || 'New set') + ' card count', data: `data-set-row="${index}"` }, { minCeiling: rule.max, maxFloor: Math.max(rule.min, limits.min) })}</div><select id="${id}-select" data-set-select="${index}" aria-label="Set for card count"><option value="">Select a set</option>${choices.map(set => `<option value="${escapeHtml(set)}" ${set === rule.set ? 'selected' : ''}>${escapeHtml(set)}</option>`).join('')}</select></div></div>`;
+    }).join('')}</div></details>`;
 }
 
 function renderRequirements() {
@@ -407,6 +454,7 @@ function renderRequirements() {
         acceptedCaps[definition.id] = Math.min(cap, policy.upper[definition.id] ?? 10);
     }
     const costBounds = normalizeCosts(available);
+    const spreadSets = normalizeSetSpread(available);
     const state = constraintState();
     const quickControls = `<div class="quick-requirements">${quickRequirements.map(({ id, label }) => {
         const canRequire = Boolean(requiredKingdom(available, { ...state.lower, [id]: Math.max(1, state.lower[id] || 0) }, state.allDefinitions, 10, eligibleLocks(), state.upper, state.conditions));
@@ -420,7 +468,7 @@ function renderRequirements() {
         const cap = Math.max(value, Math.min(requirementCaps[definition.id] ?? max, max));
         const id = definition.id;
         return `<div class="requirement-slider"><span>Require between <output id="${id}-min-value">${value}</output> and <output id="${id}-max-value">${cap}</output> ${escapeHtml(definition.label)}</span>${dualRangeHtml(id, 0, max, value, cap, { label: escapeHtml(definition.label), data: `data-requirement-id="${id}"` }, { minCeiling: cap, maxFloor: Math.max(value, limits.min) })}<small>Maximum ${max} · Total available ${total}</small></div>`;
-    }).join('')}</div></details>`).join('') + costSpreadHtml(available, costBounds);
+    }).join('')}</div></details>`).join('') + costSpreadHtml(available, costBounds) + setSpreadHtml(available, spreadSets);
     $('requirement-sliders').querySelectorAll('.requirement-group').forEach(group => {
         group.open = requirementGroups[group.querySelector('summary').textContent] === true;
     });
@@ -691,6 +739,7 @@ async function init() {
             requirements = saved.requirements || {};
             requirementCaps = presetState(saved).requirementCaps;
             attackOptions = normalizeAttackOptions(saved.attackOptions);
+            setSpread = Array.isArray(saved.setSpread) ? saved.setSpread : [];
             costExact = saved.costExact && typeof saved.costExact === 'object' ? saved.costExact : {};
             costRanges = Array.isArray(saved.costRanges) ? saved.costRanges.filter(range => range && Number.isInteger(range.id)) : [];
             nextCostRange = Math.max(0, ...costRanges.map(range => range.id)) + 1;
@@ -734,6 +783,23 @@ async function init() {
             save();
         });
         $('requirement-sliders').addEventListener('change', event => {
+            if (event.target.dataset.setSelect !== undefined || event.target.dataset.setRow !== undefined) {
+                const input = event.target;
+                const index = Number(input.dataset.setSelect ?? input.dataset.setRow);
+                const rule = setSpread[index] || { set: '', min: 0, max: 10 };
+                if (input.dataset.setSelect !== undefined) {
+                    rule.set = input.value;
+                } else {
+                    rule.set ||= [...new Set(pool().map(card => card.set))].sort().find(set => !setSpread.some(item => item.set === set));
+                    rule[input.dataset.end] = Number(input.value);
+                }
+                setSpread[index] = rule;
+                renderRequirements();
+                settingsChanged();
+                $(input.id)?.focus();
+                return;
+            }
+
             if (event.target.dataset.quickRequirement) {
                 const id = event.target.dataset.quickRequirement;
                 requirements[id] = event.target.checked ? Math.max(1, requirements[id] || 0) : 0;
@@ -795,6 +861,12 @@ async function init() {
         }, true);
         $('requirement-sliders').addEventListener('input', event => {
             if (event.target.matches('input[type="range"]')) {
+                if (event.target.dataset.setRow !== undefined) {
+                    const input = event.target;
+                    input.value = Math.max(Number(input.dataset.floor), Math.min(Number(input.dataset.ceiling), Number(input.value)));
+                    $('set-spread-' + input.dataset.setRow + '-' + input.dataset.end + '-value').value = input.value;
+                    return;
+                }
                 if (event.target.dataset.requirementId) {
                     const input = event.target;
                     input.value = Math.max(Number(input.dataset.floor), Math.min(Number(input.dataset.ceiling), Number(input.value)));
@@ -816,15 +888,6 @@ async function init() {
                 }
                 event.target.previousElementSibling.querySelector('output').value = event.target.value;
             }
-        });
-        $('reset-requirements').addEventListener('click', () => {
-            requirements = {};
-            requirementCaps = {};
-            attackOptions = normalizeAttackOptions();
-            costExact = {};
-            costRanges = [];
-            renderRequirements();
-            settingsChanged();
         });
         $('requirement-sliders').addEventListener('click', event => {
             const button = event.target.closest('[data-remove-cost]');
