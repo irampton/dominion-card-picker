@@ -26,7 +26,7 @@ const quickRequirements = [
     { id: 'keyword-buy', label: 'Require Buy' },
     { id: 'keyword-trash', label: 'Require Trashing' }
 ];
-let options = { landscapes: 0, landscapeTypes: [...landscapeKinds] };
+let options = { landscapes: 0, landscapeTypes: [...landscapeKinds], prophecy: 'auto' };
 let editionChoices = {};
 let collectionOpen = true;
 let promosOpen = false;
@@ -172,6 +172,8 @@ function renderSets() {
 function renderOptions() {
     const supported = landscapeKinds.filter(type => db.cards.some(card => card.purpose === 'Landscape' && card.types.includes(type) && card.editions.some(edition => selections.includes(`${card.set}:${edition}`))));
     $('game-options').hidden = supported.length === 0;
+    $('prophecies').hidden = !selections.some(key => key.startsWith('Rising Sun:'));
+    document.querySelectorAll('input[name="prophecy"]').forEach(input => { input.checked = input.value === options.prophecy; });
     $('landscape-types').innerHTML = supported.map(type => `<label><input type="checkbox" value="${type}" ${options.landscapeTypes.includes(type) ? 'checked' : ''}>${{ Event: 'Events', Landmark: 'Landmarks', Project: 'Projects', Way: 'Ways', Trait: 'Traits' }[type]}</label>`).join('');
     $('landscape-count').value = options.landscapes;
     updateLandscapeCount();
@@ -185,6 +187,7 @@ function updateLandscapeCount() {
 function activeOptions() {
     return {
         ...options,
+        prophecy: selections.some(key => key.startsWith('Rising Sun:')) ? options.prophecy : 'auto',
         landscapes: $('game-options').hidden ? 0 : options.landscapes,
         colony: selections.some(key => key.startsWith('Prosperity:')) ? 'auto' : 'no',
         shelters: selections.includes('Dark Ages:1') ? 'auto' : 'no',
@@ -272,6 +275,15 @@ function constraintState() {
     const allDefinitions = [...definitions, ...costDefinitions(costRanges), ...policy.definitions];
     const lower = { ...requirements };
     const upper = { ...requirementCaps, ...policy.upper };
+    if (selections.some(key => key.startsWith('Rising Sun:'))) {
+        if (options.prophecy === 'require') {
+            lower['type-omen'] = Math.max(1, lower['type-omen'] || 0);
+            upper['type-omen'] = Math.max(1, upper['type-omen'] ?? 10);
+        } else if (options.prophecy === 'exclude') {
+            lower['type-omen'] = 0;
+            upper['type-omen'] = 0;
+        }
+    }
     for (const definition of allDefinitions.filter(item => item.group === 'Cost Spread')) {
         const rule = definition.id.startsWith('cost-range-') ? costRanges.find(item => `cost-range-${item.id}` === definition.id) : costExact[definition.id];
         if (rule) {
@@ -424,6 +436,15 @@ function setSpreadHtml(available, sets) {
 }
 
 function renderRequirements() {
+    if (selections.some(key => key.startsWith('Rising Sun:'))) {
+        if (options.prophecy === 'require') {
+            requirements['type-omen'] = Math.max(1, requirements['type-omen'] || 0);
+            requirementCaps['type-omen'] = Math.max(1, requirementCaps['type-omen'] ?? 10);
+        } else if (options.prophecy === 'exclude') {
+            requirements['type-omen'] = 0;
+            requirementCaps['type-omen'] = 0;
+        }
+    }
     const available = pool();
     const hasResponse = available.some(card => attackProfiles.get(card.id)?.responses.length);
     const hasBlocker = available.some(card => attackProfiles.get(card.id)?.blockers.length);
@@ -745,7 +766,8 @@ async function init() {
             nextCostRange = Math.max(0, ...costRanges.map(range => range.id)) + 1;
             options = {
                 landscapes: Math.min(4, Math.max(0, Math.floor(Number(saved.options?.landscapes) || 0))),
-                landscapeTypes: Array.isArray(saved.options?.landscapeTypes) ? saved.options.landscapeTypes.filter(type => landscapeKinds.includes(type)) : [...landscapeKinds]
+                landscapeTypes: Array.isArray(saved.options?.landscapeTypes) ? saved.options.landscapeTypes.filter(type => landscapeKinds.includes(type)) : [...landscapeKinds],
+                prophecy: ['auto', 'require', 'exclude'].includes(saved.options?.prophecy) ? saved.options.prophecy : 'auto'
             };
         }
         if (!saved || !Array.isArray(saved.selections)) {
@@ -912,6 +934,17 @@ async function init() {
             changeCollection();
         });
         $('landscape-count').addEventListener('input', updateLandscapeCount);
+        $('prophecies').addEventListener('change', event => {
+            if (event.target.name !== 'prophecy') {
+                return;
+            }
+            if (options.prophecy === 'exclude') {
+                delete requirementCaps['type-omen'];
+            }
+            options.prophecy = event.target.value;
+            renderRequirements();
+            settingsChanged();
+        });
         $('landscape-count').addEventListener('change', () => {
             options.landscapes = Number($('landscape-count').value);
             settingsChanged();

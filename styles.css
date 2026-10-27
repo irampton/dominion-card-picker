@@ -170,6 +170,9 @@ select { display: block; width: 100%; margin-top: 7px; background: white; color:
 .landscape-types { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px; font-size: 13px; }
 .landscape-types label { display: flex; align-items: center; gap: 7px; }
 .landscape-types input, #landscape-count { accent-color: var(--green); }
+.prophecy-options { display: grid; gap: 12px; padding-top: 14px; font-size: 13px; }
+.prophecy-options label { display: flex; align-items: center; gap: 7px; }
+.prophecy-options input { accent-color: var(--green); }
 .options .landscape-count-label { max-width: 420px; }
 #landscape-count { display: block; width: 100%; margin: 14px 0 0; }
 #landscape-value { margin-left: 8px; }

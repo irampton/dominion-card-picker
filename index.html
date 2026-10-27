@@ -39,6 +39,14 @@
             </div>
             <p id="landscape-recommendation" class="small" hidden>Only 2 landscapes are recommended.</p>
             <div id="landscape-types" class="landscape-types"></div>
+            <details id="prophecies" class="requirement-group" open hidden>
+                <summary>Prophecies</summary>
+                <div class="prophecy-options" role="radiogroup" aria-label="Prophecies">
+                    <label><input type="radio" name="prophecy" value="auto" checked>Choose a prophecy if an omen card is selected</label>
+                    <label><input type="radio" name="prophecy" value="require">Require at least 1 omen card and prophecy</label>
+                    <label><input type="radio" name="prophecy" value="exclude">Require no omen card and prophecy</label>
+                </div>
+            </details>
         </section>
         <div class="kingdom-controls"><button class="primary generate" id="generate"><span aria-hidden="true">⤨</span> Pick Kingdom Cards</button><div class="kingdom-toolbar"><button class="quiet" id="copy" disabled>Copy setup</button><div class="kingdom-sort" id="sort-kingdom" role="radiogroup" aria-label="Sort kingdom cards"><span>Sort:</span><label><input type="radio" name="kingdom-sort" value="Cost" checked>Cost</label><label><input type="radio" name="kingdom-sort" value="Name">Name</label><label><input type="radio" name="kingdom-sort" value="Set">Set</label></div></div></div>
         <div id="announcements" class="sr-only" role="status" aria-live="polite"></div>

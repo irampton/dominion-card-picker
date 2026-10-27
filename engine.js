@@ -79,7 +79,7 @@ export function landscapeReplacementCandidates(db, kingdom, pool, options, cache
     const existing = resolveSetup(db, kingdom, pool, options, { ...cache }).landscapes;
     return db.cards.filter(card => card.purpose === 'Landscape' && !existing.some(item => item.id === card.id) && (
         key === 'ally' ? card.types.includes('Ally') : key === 'prophecy' ? card.types.includes('Prophecy') :
-            card.types.some(type => options.landscapeTypes?.includes(type)) && card.editions.some(edition => options.selections?.includes(`${card.set}:${edition}`))
+            !card.types.includes('Prophecy') && card.types.some(type => options.landscapeTypes?.includes(type)) && card.editions.some(edition => options.selections?.includes(`${card.set}:${edition}`))
     )).filter(card => resolveSetup(db, kingdom, pool, options, { ...cache, [key]: card.id }).landscapes.some(item => item.id === card.id)).sort((a, b) => a.name.localeCompare(b.name, 'en'));
 }
 
@@ -97,6 +97,9 @@ export function resolveSetup(db, kingdom, pool, options = {}, cache = {}, random
     const queue = [...kingdom];
     const responseKey = options.blockAttackResponse ? 'blockers' : 'responses';
     const canUse = card => {
+        if (options.prophecy === 'exclude' && (card.types.includes('Omen') || card.types.includes('Prophecy'))) {
+            return false;
+        }
         const profile = options.attackProfiles?.get(card.id);
         const attack = profile?.attack || card.types.includes('Attack') || card.name === 'Approaching Army';
         if (!attack) {
@@ -140,7 +143,7 @@ export function resolveSetup(db, kingdom, pool, options = {}, cache = {}, random
     if (options.landscapes) {
         const selectedSets = new Set(pool.map(card => card.set));
         const allowedTypes = options.landscapeTypes || ['Event', 'Landmark', 'Project', 'Way', 'Trait'];
-        const candidates = db.cards.filter(card => card.purpose === 'Landscape' && selectedSets.has(card.set) && card.types.some(type => allowedTypes.includes(type)) && card.editions.some(edition => options.selections?.includes(`${card.set}:${edition}`)) && canUse(card));
+        const candidates = db.cards.filter(card => card.purpose === 'Landscape' && !card.types.includes('Prophecy') && selectedSets.has(card.set) && card.types.some(type => allowedTypes.includes(type)) && card.editions.some(edition => options.selections?.includes(`${card.set}:${edition}`)) && canUse(card));
         const count = Math.min(4, Math.max(0, options.landscapes));
         if (candidates.length < count) {
             warnings.push(`Only ${candidates.length} landscape cards are available for the selected types and expansions (requested ${count}).`);
@@ -150,6 +153,10 @@ export function resolveSetup(db, kingdom, pool, options = {}, cache = {}, random
             landscapes.push(card);
             queue.push(card);
         }
+    }
+    if (options.prophecy === 'require') {
+        addLandscape('Prophecy', 'prophecy');
+        notes.push({ name: 'Prophecy', text: 'Place Sun tokens on the Prophecy: 5 / 8 / 10 / 12 / 13 for 2 / 3 / 4 / 5 / 6 players.' });
     }
     const plainCost = (card, values) => !card.cost.potion && !card.cost.debt && values.includes(card.cost.coins);
     const rules = {
@@ -184,7 +191,7 @@ export function resolveSetup(db, kingdom, pool, options = {}, cache = {}, random
                 addLandscape('Ally', 'ally');
                 notes.push({ name: 'Favors', text: 'Each player starts with 1 Favor (Importer adds 4 more if present).' });
             }
-            if (card.types.includes('Omen') && !landscapes.some(item => item.types.includes('Prophecy'))) {
+            if (options.prophecy !== 'exclude' && card.types.includes('Omen') && !landscapes.some(item => item.types.includes('Prophecy'))) {
                 addLandscape('Prophecy', 'prophecy');
                 notes.push({ name: 'Prophecy', text: 'Place Sun tokens on the Prophecy: 5 / 8 / 10 / 12 / 13 for 2 / 3 / 4 / 5 / 6 players.' });
             }

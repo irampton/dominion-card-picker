@@ -201,6 +201,33 @@ test('Omen adds one Prophecy; Liaison adds one Ally; cache is stable', () => {
     assert.ok(first.materials.some(item => item.name === 'Sun tokens'));
 });
 
+test('Prophecies are additional to ordinary landscapes and follow their own policy', () => {
+    const omenKingdom = kingdomWith(['Poet', 'Mountain Shrine']);
+    const plainKingdom = kingdomWith(['Village']);
+    for (const count of [0, 2, 4]) {
+        const config = { ...options, landscapes: count, landscapeTypes: ['Way'] };
+        const result = resolveSetup(db, omenKingdom, pool, config);
+        assert.equal(result.landscapes.filter(card => card.types.includes('Way')).length, count);
+        assert.equal(result.landscapes.filter(card => card.types.includes('Prophecy')).length, 1);
+        assert.equal(resolveSetup(db, plainKingdom, pool, config).landscapes.length, count);
+        const required = resolveSetup(db, plainKingdom, pool, { ...config, prophecy: 'require' });
+        assert.equal(required.landscapes.length, count + 1);
+        assert.equal(required.landscapes.filter(card => card.types.includes('Prophecy')).length, 1);
+        const excluded = resolveSetup(db, omenKingdom, pool, { ...config, prophecy: 'exclude' });
+        assert.equal(excluded.landscapes.length, count);
+        assert.ok(!excluded.landscapes.some(card => card.types.includes('Prophecy')));
+    }
+});
+
+test('Prophecies cannot enter the ordinary random landscape pool', () => {
+    const result = resolveSetup(db, kingdomWith(['Village']), pool, { ...options, landscapes: 4, landscapeTypes: ['Prophecy'] });
+    assert.equal(result.landscapes.length, 0);
+    const cache = {};
+    const config = { ...options, landscapes: 1, landscapeTypes: ['Way', 'Prophecy'] };
+    const setup = resolveSetup(db, kingdomWith(['Village']), pool, config, cache);
+    assert.ok(landscapeReplacementCandidates(db, kingdomWith(['Village']), pool, config, cache, setup.landscapes[0]).every(card => !card.types.includes('Prophecy')));
+});
+
 test('Colony and Shelters are optional, auto uses kingdom proportions', () => {
     const kingdom = kingdomWith(['Witch']);
     assert.ok(!setupFor(['Witch']).companions.some(item => item.name === 'Colony'));
