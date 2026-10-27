@@ -941,6 +941,9 @@ async function init() {
             if (options.prophecy === 'exclude') {
                 delete requirementCaps['type-omen'];
             }
+            if (options.prophecy === 'require' && event.target.value === 'auto' && requirements['type-omen'] === 1) {
+                requirements['type-omen'] = 0;
+            }
             options.prophecy = event.target.value;
             renderRequirements();
             settingsChanged();
